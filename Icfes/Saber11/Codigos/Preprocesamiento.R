@@ -28,8 +28,19 @@ saber20232 <- data.frame(read_delim("C:\\Users\\camil\\Documents\\StatisticsLoca
                                     delim = "¬"))
 
 datos <- c("saber20231", "saber20232")
+sapply(datos, function(i) dim(get(i))) # Dimension de los conjuntos de datos
 
-sapply(datos, function(i) dim(get(i)))
+
+# ENTENDIMIENTO DE LOS DATOS ---------------------------------------------------
+
+# 1) INTEGRACIÓN
+
+
+
+
+
+
+
 
 
 
