@@ -33,15 +33,13 @@ sapply(datos, function(i) dim(get(i))) # Dimensión de los conjuntos de datos
 
 # ENTENDIMIENTO DE LOS DATOS ---------------------------------------------------
 
-# 1) ADQUISICIÓN
+# 1 ADQUISICIÓN
 
 # Los datos fueron descargados en formato txt por parte del Instituto Colombiano
 # para la Evaluación de la Educación -Icfes. (marzo de 2024). 
 # DataIcfes: Repositorio de Datos Abiertos del Icfes. 04.Saber11 [Conjunto de datos].
 # Recuperado de https://bitly.ws/3f3YC
 
-
-# 2) INTEGRACIÓN
 
 all(colnames(saber20231)==colnames(saber20232))
 # Hay presencia de variables posiblemente con nombres diferentes
@@ -83,6 +81,24 @@ View(data.frame(saber20231 = colnames(saber20231),
            Presente = colnames(saber20231) == colnames(saber20232)))
 
 all(colnames(saber20231)==colnames(saber20232))
+
+
+# 1.1 INTEGRACIÓN
+
+saber11 <- saber20231 %>% 
+  bind_rows(saber20232)
+
+dim(saber11)
+
+
+# 1.2 ANÁLISIS EXPLORATORIO DE DATOS (EDA)
+
+colnames(saber11)
+
+View(saber11)
+
+
+
 
 
 
