@@ -15,6 +15,7 @@ library(naniar)
 library(ggplot2)
 library(plotly)
 library(sf)
+library(mice)
 
 
 # CONJUNTOS DE DATOS -----------------------------------------------------------
@@ -110,6 +111,49 @@ View(saber11)
 # Se cuenta con 563853 registros de 28 variables
 dim(saber11)
 
+
+# ANÁLISIS ESTADÍSTICO DE DATOS FALTANTES
+# La variable COLE_BILINGUE es la que presenta la mayor cantidad de datos faltantes
+# siendo aproximadamente el 18.4% del total (563.853).
+print(miss_var_summary(saber11), n=10)
+
+gg_miss_var(saber11) +
+  labs(title = "Distribución de datos faltantes por variable",
+       y = "Datos Faltantes")
+
+# Busqueda de otros patrones de datos faltnes tales como:
+# NaN, N/A, NA los cuales no estan presentes
+miss_scan_count(saber11, list(c("^NA$", "^NaN$", "^N/A$")))
+
+# Se presentan 20 variables de 26 que no presentan datos faltantes lo que corresponde
+# al 76.9% del total de variables. Hay 2 variables que presentan 2.501 datos faltantes
+# lo que corresponde al 7.69% de las variables aproximadamente.
+miss_var_table(saber11)
+
+# Dada la alta proporción de datos faltantes en la variable COLE_BILINGUE, no se
+# tomará en cuenta esta variable
+# En el caso de las variables FAMI_ESTRATOVIVIENDA, COLE_CARACTER Y ESTU_GENERO
+# se optará por la eliminación de estos registros
+
+saber11 <- saber11 %>% 
+  select(-COLE_BILINGUE) %>% 
+  drop_na(FAMI_ESTRATOVIVIENDA, COLE_CARACTER, ESTU_GENERO)
+
+# En ese orden de ideas las variables PUNT_INGLES y DESEMP_INGLES presentan
+# 1.589 datos faltantes en donde se procede a validar si corresponden a los
+# mismos registros
+miss_var_summary(saber11)
+
+gg_miss_var(saber11) +
+  labs(title = "Distribución de datos faltantes por variable",
+       y = "Datos Faltantes")
+
+# Efectivamente corresponden a los mismos registros
+dim(saber11)
+md.pattern(subset(saber11, select = c("PUNT_INGLES", "DESEMP_INGLES")))
+
+
+# NACIONALIDAD DE LOS PARTICIPANTES
 # Los individuos que presentaron el examén provienen de 52 nacionalidades
 saber11 %>% 
   distinct(ESTU_NACIONALIDAD) %>% 
@@ -167,8 +211,31 @@ saber11 %>%
 ggplot() +
   geom_sf(data = mapa_mundo, color="white", fill="grey70") +
   geom_sf(data = nac, color="white", fill="darkblue") +
-  labs(title = "Globalización Educativa: Orígenes Geográficos de los Participantes en la Prueba Saber 11 (2023)",
+  labs(title = "Globalización Educativa: Orígenes geográficos de los participantes en la Prueba Saber 11 (2023).",
        x = "Longitud", y = "Latitud")
+
+
+# SEXO DE LOS PARTICIPANTES
+
+# Las mujeres presentan una participación superior al de los hombres, ya que
+# 266.186 (53.9%) presentaron el examén Saber 11, mientras que 227.489 (46.1%) de
+# los hombres realizaron dicho examén
+sex <- saber11 %>% 
+  count(ESTU_GENERO)
+
+plot_ly(type = "pie",
+        data = sex,
+        values=~n,
+        labels=~ESTU_GENERO,
+        marker = list(colors = c("pink", "skyblue"),
+                      line = list(color = "white", width = 1))) %>% 
+  layout(title = "Pie Charts with Subplots", showlegend = T)
+
+
+
+
+
+
 
 
 
