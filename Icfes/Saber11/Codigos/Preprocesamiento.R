@@ -35,7 +35,9 @@ sapply(datos, function(i) dim(get(i))) # Dimensión de los conjuntos de datos
 
 mapa_mundo <- read_sf("C:\\Users\\camil\\Documents\\StatisticsLocal\\R-Proyectos\\Icfes\\Saber11\\Datasets\\Country_Shapes\\Country_Shapes.shp")
 iso_paises <- data.frame(read_excel("C:\\Users\\camil\\Documents\\StatisticsLocal\\R-Proyectos\\Icfes\\Saber11\\Datasets\\Codigos_ISO_Paises.xlsx"))
-
+t_colombia <- data.frame(read_excel("C:\\Users\\camil\\Documents\\StatisticsLocal\\R-Proyectos\\Icfes\\Saber11\\Datasets\\TerritoriosColombia.xlsx",
+                                    sheet = "CODIGOS2"))
+mapa_colombia <- read_sf("C:\\Users\\camil\\Documents\\StatisticsLocal\\R-Proyectos\\Icfes\\Saber11\\Datasets\\Territorios_Colombia_Shapes\\Limite Departamental.shp")
 
 # ENTENDIMIENTO DE LOS DATOS ---------------------------------------------------
 
@@ -221,7 +223,7 @@ ggplot() +
 # 266.186 (53.9%) presentaron el examén Saber 11, mientras que 227.489 (46.1%) de
 # los hombres realizaron dicho examén
 sex <- saber11 %>% 
-  count(ESTU_GENERO)
+  count(ESTU_GENERO); sex
 
 plot_ly(type = "pie",
         data = sex,
@@ -229,7 +231,203 @@ plot_ly(type = "pie",
         labels=~ESTU_GENERO,
         marker = list(colors = c("pink", "skyblue"),
                       line = list(color = "white", width = 1))) %>% 
-  layout(title = "Pie Charts with Subplots", showlegend = T)
+  layout(title = "Distribución de participantes según sexo", showlegend = T)
+
+# PERIODO
+
+# Se observa que el periodo corresponde al año 2023 indeoendientemente del
+# semestre de la realización del examén que esta relacionad con el Calendario (A, B)
+unique(saber11$PERIODO)
+
+saber11 <- saber11 %>% 
+  mutate(PERIODO = 2023)
+
+
+# ESTU_ESTUDIANTE
+# En este caso todos los participantes son estudiantes
+saber11 %>% 
+  group_by(ESTU_ESTUDIANTE) %>% 
+  summarize(Conteo = n())
+
+saber11 %>% 
+  distinct(ESTU_ESTUDIANTE)
+  
+
+# ESTU_COD_RESIDE_DEPTO y ESTU_COD_RESIDE_MCPIO
+
+# Los estudiantes residen en las 33 unidades territoriales de Colombia y
+# en el extranjero, sumando asi 34 unidades territoriales
+length(unique(saber11$ESTU_COD_RESIDE_DEPTO))
+
+dim(saber11)
+
+saber11 <- saber11 %>% 
+  left_join(t_colombia, by=c("ESTU_COD_RESIDE_DEPTO"="COD_DEPTO", "ESTU_COD_RESIDE_MCPIO"="COD_MUN"))
+
+length(unique(saber11$DEPARTAMENTO))
+
+# Se presentan valores faltantes en las variables territoriales ya que
+# se tomaron en cuenta territorios no municipalizados oficialmente
+# en este caso unicamente se tomaran territorios municipalizados
+# Por otro lado, se especficaran los casos del extranjero
+
+print(miss_var_summary(saber11), n=5)
+
+saber11 <- saber11 %>% 
+  mutate(DEPARTAMENTO = ifelse(ESTU_COD_RESIDE_DEPTO=="99999" & is.na(DEPARTAMENTO), "Extranjero", DEPARTAMENTO)) %>% 
+  mutate(MUNICIPIO = ifelse(ESTU_COD_RESIDE_MCPIO=="99999" & is.na(MUNICIPIO), "Extranjero", MUNICIPIO))
+
+saber11 <- saber11 %>%
+  drop_na(DEPARTAMENTO, MUNICIPIO)
+  
+saber11 <- saber11 %>% 
+  rename(DEPTO_RESIDE = DEPARTAMENTO, MUN_RESIDE = MUNICIPIO)
+
+ggplot(data = saber11, aes(x=DEPTO_RESIDE)) +
+  geom_bar(color="blue4", fill="skyblue", stat = "count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+b <- saber11 %>% 
+  group_by(ESTU_COD_RESIDE_DEPTO, DEPTO_RESIDE) %>% 
+  summarize(Conteo = n()) %>% 
+  data.frame()
+
+# Los estudiantes que presentaron el examen en su mayoria viven en la ciudad
+# de Bogotá, seguido del departamento de Antioquia, Valle del Cauca y Cundinamarca
+plot_ly(data = b,
+        type = "bar",
+        x = ~DEPTO_RESIDE,
+        y = ~Conteo,
+        text = ~Conteo) %>% 
+  layout(xaxis = list(categoryorder = "total descending"))
+
+length(unique(saber11$MUN_RESIDE))
+
+# Distribucion geografica
+
+colnames(mapa_colombia)
+colnames(b)
+
+mapa_dep <- b %>% 
+  left_join(select(mapa_colombia, COD_DEPART, geometry), by=c("ESTU_COD_RESIDE_DEPTO"="COD_DEPART"))
+
+
+ggplot() +
+  geom_sf(data = mapa_colombia) +
+  geom_sf(data = mapa_dep, aes(geometry=geometry, fill=Conteo)) +
+  scale_fill_gradient(low = "white", high = "purple")
+
+
+# FAMI_ESTRATOVIVIENDA
+
+# Se presentan casos en los que los estudiantes no poseen estrato, con fines
+# practicos no se tomaran en cuenta estos casos
+saber11 %>% 
+  group_by(FAMI_ESTRATOVIVIENDA) %>% 
+  summarize(n())
+
+saber11 %>% 
+  select(FAMI_ESTRATOVIVIENDA, ESTU_NACIONALIDAD, DEPTO_RESIDE) %>% 
+  filter(FAMI_ESTRATOVIVIENDA == "Sin Estrato") %>% 
+  slice_head(n=5)
+
+saber11 <- saber11 %>% 
+  filter(FAMI_ESTRATOVIVIENDA != "Sin Estrato")
+
+ggplot() +
+  geom_bar(data = saber11,
+               aes(x = FAMI_ESTRATOVIVIENDA,
+                   fill = FAMI_ESTRATOVIVIENDA))
+
+dim(saber11)
+
+
+# COLE_NATURALEZA
+
+# La naturaleza de los colegios es Oficial (Publico) y No Oficial (Privado)
+unique(saber11$COLE_NATURALEZA)
+
+saber11 <- saber11 %>% 
+  mutate(COLE_NATURALEZA = str_to_title(COLE_NATURALEZA))
+
+b1 <- saber11 %>% 
+  count(COLE_NATURALEZA); b1
+
+ggplot() +
+  geom_point(data = b1, aes(x = COLE_NATURALEZA,
+                            y = n,
+                            fill=COLE_NATURALEZA,
+                            color = COLE_NATURALEZA), size=3.5) +
+  geom_text(data = b1, aes(x = COLE_NATURALEZA,
+                           y = n,
+                           label=n))
+
+# COLE_CALENDARIO
+
+# Se observa otro tipo de Calendario diferente al A y B, con lo cual no se
+# tomarán en cuenta estos registros
+p2 <- saber11 %>% 
+  group_by(COLE_CALENDARIO) %>% 
+  summarize(Conteo = n()); p2
+
+saber11 <- saber11 %>% 
+  filter(COLE_CALENDARIO != "OTRO")
+
+plot_ly(data = p2,
+        type="pie",
+        values=~Conteo,
+        labels=~paste("Calendario", COLE_CALENDARIO)) %>% 
+  layout(title="Distribución de estudiantes por tipo de Calendario")
+
+
+# COLE_CARACTER
+
+saber11 %>% 
+  group_by(COLE_CARACTER) %>% 
+  summarize(Conteo = n())
+
+saber11 %>% 
+  filter(COLE_CARACTER == "NO APLICA") %>% 
+  slice_tail(n=5)
+
+saber11 <- saber11 %>% 
+  mutate(COLE_CARACTER = str_to_title(COLE_CARACTER))
+
+
+# COLE_AREA_UBICACION
+
+saber11 %>% 
+  group_by(COLE_AREA_UBICACION) %>% 
+  summarize(n())
+
+# COLE_JORNADA
+
+b1 <- saber11 %>% 
+  group_by(COLE_JORNADA) %>% 
+  summarize(Conteo = n())
+
+plot_ly(data = b1,
+        type = "bar",
+        y = ~COLE_JORNADA,
+        x = ~Conteo,
+        marker = list(color = "darkgreen"),
+        text = ~Conteo) %>% 
+  layout(title = list(text = "Cantidad de estudiantes según tipo de jornada", y = 0.98))
+
+saber11 <- saber11 %>% 
+  mutate(COLE_JORNADA = str_to_title(COLE_JORNADA))
+
+# Detectamos presencia de espacios al prnicipio o final de los valores 
+
+str_detect(saber11$COLE_JORNADA, pattern = "\\s^") %>% sum()
+str_detect(saber11$COLE_JORNADA, pattern = "$\\s") %>% sum()
+str_detect(saber11$COLE_JORNADA, pattern = "\\W") %>% sum()
+
+
+# PUNTAJE EN LAS ASIGNATURAS EVALUADAS
+
+
+
 
 
 
