@@ -16,6 +16,10 @@ library(ggplot2)
 library(plotly)
 library(sf)
 library(mice)
+library(PerformanceAnalytics)
+library(corrplot)
+library(factoextra)
+library(FactoMineR)
 
 
 # CONJUNTOS DE DATOS -----------------------------------------------------------
@@ -400,6 +404,7 @@ saber11 %>%
   group_by(COLE_AREA_UBICACION) %>% 
   summarize(n())
 
+
 # COLE_JORNADA
 
 b1 <- saber11 %>% 
@@ -424,19 +429,50 @@ str_detect(saber11$COLE_JORNADA, pattern = "$\\s") %>% sum()
 str_detect(saber11$COLE_JORNADA, pattern = "\\W") %>% sum()
 
 
-# PUNTAJE EN LAS ASIGNATURAS EVALUADAS
+# PUNTAJE GLOBAL
+
+# Los puntajes evidencian coherencia ya que deben estar entre 0 y 500, y
+# se encuentran entre 89 y 500 puntos
+plot_ly(data = saber11,
+        type = "box",
+        y = ~PUNT_GLOBAL,
+        marker = list(color = "grey55"),
+        line = list(color = "grey55"),
+        color = I("grey55"))
+
+plot_ly(data = saber11,
+        type = "violin",
+        x = ~PUNT_GLOBAL,
+        box = list(visible = T))
 
 
+# PUNTAJE POR ASIGNATURA EVALUADA
 
+dim(saber11)
 
+puntaje <- saber11 %>% 
+  select(starts_with("PUNT_"), -PUNT_GLOBAL) %>% 
+  drop_na() %>% 
+  slice_head(n=10000)
 
+chart.Correlation(puntaje, pch = 19)
 
+puntaje <- saber11 %>% 
+  select(starts_with("PUNT_"), -PUNT_GLOBAL) %>% 
+  drop_na()
 
+glimpse(puntaje)
 
+corrplot(cor(puntaje), method = "number", type = "upper", tl.cex = 0.4, tl.col = "black")
 
+pca <- PCA(puntaje, scale.unit = T, graph = F)
 
+pca$eig
+pca$var$coord
+pca$var$contrib
+fviz_screeplot(pca)
 
-
+plot.PCA(pca, axes = c(1, 2), choix = "var")
 
 
 
